@@ -36,6 +36,14 @@ import org.apache.logging.log4j.core.layout.ByteBufferDestination;
  * <p>The layout produces log output which fully integrates with Google's ErrorReporting, as well as
  * properly unwrapping the context map to allow adding ad-hoc fields such as the trace and spanId to
  * integrated with Cloud Trace.
+ *
+ * <p>Open points:
+ *
+ * <ul>
+ *   <li>A new error report will be shown if there is an exception attached to the log statement; we
+ *       sometimes attach exceptions to warnings, however - does it make sense to still raise a
+ *       report for that?
+ * </ul>
  */
 @Plugin(name = "StackdriverLayout", category = Node.CATEGORY, elementType = Layout.ELEMENT_TYPE)
 public final class StackdriverLayout extends AbstractLayout<byte[]> implements LocationAware {

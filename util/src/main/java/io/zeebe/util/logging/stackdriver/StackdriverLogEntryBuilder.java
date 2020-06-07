@@ -103,14 +103,7 @@ public final class StackdriverLogEntryBuilder {
   }
 
   public StackdriverLogEntryBuilder withException(final ThrowableProxy error) {
-    final var errorTraceElements = error.getStackTrace();
-    if (errorTraceElements != null && errorTraceElements.length > 0) {
-      context.putIfAbsent(
-          ERROR_REPORT_LOCATION_CONTEXT_KEY, mapStackTraceToSourceLocation(errorTraceElements[0]));
-    }
-
-    return withType(StackdriverLogEntry.ERROR_REPORT_TYPE)
-        .withException(error.getExtendedStackTraceAsString());
+    return withException(error.getExtendedStackTraceAsString());
   }
 
   public StackdriverLogEntryBuilder withType(final String type) {
@@ -135,9 +128,13 @@ public final class StackdriverLogEntryBuilder {
     if (traceElement != null) {
       sourceLocation = mapStackTraceToSourceLocation(traceElement);
 
-      if (severity == Severity.ERROR) {
+      if (severity == Severity.ERROR && exception == null) {
         context.putIfAbsent(ERROR_REPORT_LOCATION_CONTEXT_KEY, sourceLocation);
       }
+    }
+
+    if (severity == Severity.ERROR && type == null) {
+      type = StackdriverLogEntry.ERROR_REPORT_TYPE;
     }
 
     stackdriverLogEntry.setSeverity(severity.name());

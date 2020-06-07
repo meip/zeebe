@@ -21,6 +21,7 @@ import java.util.Map;
  */
 @JsonInclude(Include.NON_EMPTY)
 public final class StackdriverLogEntry {
+  // Setting this as the entry's type will guarantee it will show up in the Error Reporting tool
   static final String ERROR_REPORT_TYPE =
       "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent";
 
