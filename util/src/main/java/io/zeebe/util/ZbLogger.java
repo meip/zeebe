@@ -676,6 +676,18 @@ public class ZbLogger implements Logger {
       final String message,
       final Throwable throwable,
       final Object... arguments) {
-    locationAwareLogger.log(marker, loggerFqcn, level, message, arguments, throwable);
+    // there's a bug in Log4J's SLF4J bridge with the implementation of LocationAwareLogger, where
+    // the throwable is not properly attached to the statement - there's an open issue for it, but
+    // until it is patched we have to do it here ourselves
+    // https://issues.apache.org/jira/browse/LOG4J2-2863
+    var resolvedThrowable = throwable;
+    if (resolvedThrowable == null && arguments != null && arguments.length > 0) {
+      final var lastArgument = arguments[arguments.length - 1];
+      if (lastArgument instanceof Throwable) {
+        resolvedThrowable = (Throwable) lastArgument;
+      }
+    }
+
+    locationAwareLogger.log(marker, loggerFqcn, level, message, arguments, resolvedThrowable);
   }
 }
