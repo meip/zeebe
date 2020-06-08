@@ -11,10 +11,14 @@ import io.zeebe.gateway.impl.broker.cluster.BrokerClusterState;
 import io.zeebe.gateway.impl.broker.cluster.BrokerTopologyManager;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public final class RoundRobinDispatchStrategy implements RequestDispatchStrategy {
+/**
+ * Return the next partition using a round robin strategy, but skips the partitions where there is
+ * no leader at the moment.
+ */
+public class RoundRobinDispatchStrategy implements RequestDispatchStrategy {
 
-  private final BrokerTopologyManager topologyManager;
-  private final AtomicInteger partitions = new AtomicInteger(0);
+  protected final BrokerTopologyManager topologyManager;
+  protected final AtomicInteger partitions = new AtomicInteger(0);
 
   public RoundRobinDispatchStrategy(final BrokerTopologyManager topologyManager) {
     this.topologyManager = topologyManager;
@@ -25,10 +29,15 @@ public final class RoundRobinDispatchStrategy implements RequestDispatchStrategy
     final BrokerClusterState topology = topologyManager.getTopology();
 
     if (topology != null) {
-      final int offset = partitions.getAndIncrement();
-      return topology.getPartition(offset);
-    } else {
-      return BrokerClusterState.PARTITION_ID_NULL;
+      for (int i = 0; i < topology.getPartitionsCount(); i++) {
+        final int offset = partitions.getAndIncrement();
+        final int partition = topology.getPartition(offset);
+        if (topology.getLeaderForPartition(partition) != BrokerClusterState.NODE_ID_NULL) {
+          return partition;
+        }
+      }
     }
+
+    return BrokerClusterState.PARTITION_ID_NULL;
   }
 }
