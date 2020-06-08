@@ -25,23 +25,27 @@ import io.zeebe.protocol.Protocol;
 import io.zeebe.protocol.impl.SubscriptionUtil;
 import io.zeebe.protocol.record.ErrorCode;
 import io.zeebe.protocol.record.MessageHeaderDecoder;
+import io.zeebe.transport.ClientRequest;
 import io.zeebe.transport.ClientTransport;
 import io.zeebe.util.sched.Actor;
 import io.zeebe.util.sched.future.ActorFuture;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
 import org.agrona.DirectBuffer;
 
-public final class BrokerRequestManager extends Actor {
+final class BrokerRequestManager extends Actor {
 
+  private static final TransportRequestSender SENDER_WITH_RETRY =
+      (c, s, r, t) -> c.sendRequestWithRetry(s, BrokerRequestManager::responseValidation, r, t);
+  private static final TransportRequestSender SENDER_WITHOUT_RETRY = ClientTransport::sendRequest;
   private final ClientTransport clientTransport;
   private final RequestDispatchStrategy dispatchStrategy;
   private final BrokerTopologyManagerImpl topologyManager;
   private final Duration requestTimeout;
 
-  public BrokerRequestManager(
+  BrokerRequestManager(
       final ClientTransport clientTransport,
       final BrokerTopologyManagerImpl topologyManager,
       final RequestDispatchStrategy dispatchStrategy,
@@ -73,37 +77,38 @@ public final class BrokerRequestManager extends Actor {
     }
   }
 
-  public <T> CompletableFuture<BrokerResponse<T>> sendRequestWithRetry(
-      final BrokerRequest<T> request) {
-    return sendRequestInternal(request, true, this.requestTimeout);
+  <T> CompletableFuture<BrokerResponse<T>> sendRequestWithRetry(final BrokerRequest<T> request) {
+    return sendRequestWithRetry(request, this.requestTimeout);
   }
 
-  public <T> CompletableFuture<BrokerResponse<T>> sendRequest(final BrokerRequest<T> request) {
-    return sendRequestInternal(request, false, this.requestTimeout);
+  <T> CompletableFuture<BrokerResponse<T>> sendRequest(final BrokerRequest<T> request) {
+    return sendRequest(request, this.requestTimeout);
   }
 
-  public <T> CompletableFuture<BrokerResponse<T>> sendRequest(
+  <T> CompletableFuture<BrokerResponse<T>> sendRequest(
       final BrokerRequest<T> request, final Duration timeout) {
-    return sendRequestInternal(request, false, timeout);
+    return sendRequestInternal(request, SENDER_WITHOUT_RETRY, timeout);
   }
 
-  public <T> CompletableFuture<BrokerResponse<T>> sendRequestWithRetry(
+  <T> CompletableFuture<BrokerResponse<T>> sendRequestWithRetry(
       final BrokerRequest<T> request, final Duration requestTimeout) {
-    return sendRequestInternal(request, true, requestTimeout);
+    return sendRequestInternal(request, SENDER_WITH_RETRY, requestTimeout);
   }
 
   private <T> CompletableFuture<BrokerResponse<T>> sendRequestInternal(
-      final BrokerRequest<T> request, final boolean shouldRetry, final Duration requestTimeout) {
+      final BrokerRequest<T> request,
+      final TransportRequestSender sender,
+      final Duration requestTimeout) {
     final CompletableFuture<BrokerResponse<T>> responseFuture = new CompletableFuture<>();
     request.serializeValue();
-    actor.run(() -> sendRequestInternal(request, responseFuture, shouldRetry, requestTimeout));
+    actor.run(() -> sendRequestInternal(request, responseFuture, sender, requestTimeout));
     return responseFuture;
   }
 
   private <T> void sendRequestInternal(
       final BrokerRequest<T> request,
       final CompletableFuture<BrokerResponse<T>> returnFuture,
-      final boolean shouldRetry,
+      final TransportRequestSender sender,
       final Duration requestTimeout) {
 
     final BrokerAddressProvider nodeIdProvider;
@@ -115,10 +120,7 @@ public final class BrokerRequestManager extends Actor {
     }
 
     final ActorFuture<DirectBuffer> responseFuture =
-        shouldRetry
-            ? clientTransport.sendRequestWithRetry(
-                nodeIdProvider, BrokerRequestManager::responseValidation, request, requestTimeout)
-            : clientTransport.sendRequest(nodeIdProvider, request, requestTimeout);
+        sender.send(clientTransport, nodeIdProvider, request, requestTimeout);
 
     if (responseFuture != null) {
       actor.runOnCompletion(
@@ -208,8 +210,16 @@ public final class BrokerRequestManager extends Actor {
     }
   }
 
+  private interface TransportRequestSender {
+    ActorFuture<DirectBuffer> send(
+        ClientTransport transport,
+        Supplier<String> nodeAddressSupplier,
+        ClientRequest clientRequest,
+        Duration timeout);
+  }
+
   private class BrokerAddressProvider implements Supplier<String> {
-    private final Function<BrokerClusterState, Integer> nodeIdSelector;
+    private final ToIntFunction<BrokerClusterState> nodeIdSelector;
 
     BrokerAddressProvider() {
       this(BrokerClusterState::getRandomBroker);
@@ -219,7 +229,7 @@ public final class BrokerRequestManager extends Actor {
       this(state -> state.getLeaderForPartition(partitionId));
     }
 
-    BrokerAddressProvider(final Function<BrokerClusterState, Integer> nodeIdSelector) {
+    BrokerAddressProvider(final ToIntFunction<BrokerClusterState> nodeIdSelector) {
       this.nodeIdSelector = nodeIdSelector;
     }
 
@@ -227,7 +237,7 @@ public final class BrokerRequestManager extends Actor {
     public String get() {
       final BrokerClusterState topology = topologyManager.getTopology();
       if (topology != null) {
-        return topology.getBrokerAddress(nodeIdSelector.apply(topology));
+        return topology.getBrokerAddress(nodeIdSelector.applyAsInt(topology));
       } else {
         return null;
       }

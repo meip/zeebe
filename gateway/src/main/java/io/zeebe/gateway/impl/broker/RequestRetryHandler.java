@@ -119,7 +119,7 @@ public final class RequestRetryHandler {
               });
     } else {
       // no partition left to check
-      final var exception = new RequestRetryFailedException();
+      final var exception = new RequestRetriesExhaustedException();
       errors.forEach(exception::addSuppressed);
       throwableConsumer.accept(exception);
     }
