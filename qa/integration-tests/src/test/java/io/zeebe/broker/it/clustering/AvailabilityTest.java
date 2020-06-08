@@ -7,7 +7,6 @@
  */
 package io.zeebe.broker.it.clustering;
 
-import static io.zeebe.test.util.TestUtil.waitUntil;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.zeebe.broker.it.util.GrpcClientRule;
@@ -23,6 +22,8 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.awaitility.Awaitility;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -70,14 +71,15 @@ public class AvailabilityTest {
     }
 
     // then
-    // all create instance requests should complete successfully
-    assertThat(
-            RecordingExporter.workflowInstanceCreationRecords()
-                .withIntent(WorkflowInstanceCreationIntent.CREATED)
-                .map(Record::getPartitionId)
-                .limit(2 * partitionCount)
-                .count())
-        .isEqualTo(2 * partitionCount);
+    final List<Integer> partitionIds =
+        RecordingExporter.workflowInstanceCreationRecords()
+            .withIntent(WorkflowInstanceCreationIntent.CREATED)
+            .map(Record::getPartitionId)
+            .limit(2 * partitionCount)
+            .collect(Collectors.toList());
+
+    assertThat(partitionIds).hasSize(2 * partitionCount);
+    assertThat(partitionIds).containsExactlyInAnyOrder(1, 1, 1, 2, 2, 2);
   }
 
   @Test
@@ -128,7 +130,10 @@ public class AvailabilityTest {
               .jobType(JOBTYPE)
               .maxJobsToActivate(1)
               .timeout(Duration.ofMinutes(5))
-              .requestTimeout(Duration.ofSeconds(5)) // put a lower timeout than gateway timeout
+              .requestTimeout(
+                  Duration.ofSeconds(
+                      5)) // put a lower timeout than gateway timeout to ensure that the test fails
+              // if gateway waits on unavailable broker
               .send()
               .join()
               .getJobs();
@@ -151,10 +156,11 @@ public class AvailabilityTest {
     }
 
     // when
-    waitUntil(
-        () ->
-            RecordingExporter.jobRecords(JobIntent.CREATED).limit(numInstances).count()
-                == numInstances);
+    Awaitility.await()
+        .until(
+            () ->
+                RecordingExporter.jobRecords(JobIntent.CREATED).limit(numInstances).count()
+                    == numInstances);
 
     final Set<Long> activatedJobsKey = new HashSet<>();
     final List<ActivatedJob> jobs =
