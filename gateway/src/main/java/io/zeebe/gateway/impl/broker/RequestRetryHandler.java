@@ -9,6 +9,7 @@ package io.zeebe.gateway.impl.broker;
 
 import io.zeebe.gateway.Loggers;
 import io.zeebe.gateway.cmd.BrokerErrorException;
+import io.zeebe.gateway.cmd.NoTopologyAvailableException;
 import io.zeebe.gateway.impl.broker.cluster.BrokerTopologyManager;
 import io.zeebe.gateway.impl.broker.request.BrokerRequest;
 import io.zeebe.gateway.impl.broker.response.BrokerResponse;
@@ -29,7 +30,7 @@ import java.util.function.Function;
 public final class RequestRetryHandler {
 
   private final BrokerClient brokerClient;
-  private final RoundRobinDispatchStrategy roundRobinDispatchStrategy;
+  private final RequestDispatchStrategy roundRobinDispatchStrategy;
   private final BrokerTopologyManager topologyManager;
 
   public RequestRetryHandler(
@@ -76,6 +77,10 @@ public final class RequestRetryHandler {
           responseConsumer,
           throwableConsumer,
           new ArrayList<>());
+    } else {
+      throwableConsumer.accept(
+          new NoTopologyAvailableException(
+              "Expected to send the request to a partition in the topology, but gateway does not know broker topology"));
     }
   }
 

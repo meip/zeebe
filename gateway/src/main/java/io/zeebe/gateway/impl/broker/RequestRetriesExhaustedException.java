@@ -13,6 +13,6 @@ class RequestRetriesExhaustedException extends ClientException {
 
   RequestRetriesExhaustedException() {
     super(
-        "Expected to execute the command on one of the partitions, but all failed; there are no more partition available to retry.");
+        "Expected to execute the command on one of the partitions, but all failed; there are no more partitions available to retry.");
   }
 }
