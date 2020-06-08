@@ -22,7 +22,7 @@ import java.util.Map;
 @JsonInclude(Include.NON_EMPTY)
 public final class StackdriverLogEntry {
   // Setting this as the entry's type will guarantee it will show up in the Error Reporting tool
-  static final String ERROR_REPORT_TYPE =
+  public static final String ERROR_REPORT_TYPE =
       "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent";
 
   @JsonProperty("severity")
@@ -40,18 +40,25 @@ public final class StackdriverLogEntry {
   @JsonProperty("context")
   private Map<String, Object> context;
 
-  @JsonProperty("time")
-  private String time;
-
   @JsonProperty("@type")
   private String type;
 
   @JsonProperty("exception")
   private String exception;
 
+  @JsonProperty("timestampSeconds")
+  private Long timestampSeconds;
+
+  @JsonProperty("timestampNanos")
+  private Long timestampNanos;
+
   @Deprecated(since = "0.24.0", forRemoval = true)
   @JsonProperty("logger")
   private String logger;
+
+  @Deprecated(since = "0.24.0", forRemoval = true)
+  @JsonProperty("thread")
+  private String thread;
 
   StackdriverLogEntry() {}
 
@@ -73,14 +80,6 @@ public final class StackdriverLogEntry {
 
   public void setSourceLocation(final SourceLocation sourceLocation) {
     this.sourceLocation = sourceLocation;
-  }
-
-  public String getTime() {
-    return time;
-  }
-
-  public void setTime(final String time) {
-    this.time = time;
   }
 
   public String getMessage() {
@@ -123,6 +122,22 @@ public final class StackdriverLogEntry {
     this.exception = exception;
   }
 
+  public long getTimestampSeconds() {
+    return timestampSeconds;
+  }
+
+  public void setTimestampSeconds(final long timestampSeconds) {
+    this.timestampSeconds = timestampSeconds;
+  }
+
+  public long getTimestampNanos() {
+    return timestampNanos;
+  }
+
+  public void setTimestampNanos(final long timestampNanos) {
+    this.timestampNanos = timestampNanos;
+  }
+
   /** @deprecated deprecated in favor of the context map property {@code loggerName} */
   @Deprecated(since = "0.24.0", forRemoval = true)
   public String getLogger() {
@@ -133,5 +148,17 @@ public final class StackdriverLogEntry {
   @Deprecated(since = "0.24.0", forRemoval = true)
   public void setLogger(final String logger) {
     this.logger = logger;
+  }
+
+  /** @deprecated deprecated in favor of the context map property {@code threadName} */
+  @Deprecated(since = "0.24.0", forRemoval = true)
+  public String getThread() {
+    return thread;
+  }
+
+  /** @deprecated deprecated in favor of the context map property {@code threadName} */
+  @Deprecated(since = "0.24.0", forRemoval = true)
+  public void setThread(final String thread) {
+    this.thread = thread;
   }
 }

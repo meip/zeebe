@@ -7,31 +7,33 @@
  */
 package io.zeebe.util.logging.stackdriver;
 
-import java.time.Instant;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.impl.ThrowableProxy;
+import org.apache.logging.log4j.core.time.Instant;
 import org.apache.logging.log4j.util.ReadOnlyStringMap;
 
 public final class StackdriverLogEntryBuilder {
 
-  private static final String ERROR_REPORT_LOCATION_CONTEXT_KEY = "reportLocation";
+  public static final String ERROR_REPORT_LOCATION_CONTEXT_KEY = "reportLocation";
   private final ServiceContext service;
   private final Map<String, Object> context;
 
   private SourceLocation sourceLocation;
   private Severity severity;
-  private String time;
   private String message;
   private StackTraceElement traceElement;
   private String type;
   private String exception;
+  private Instant time;
 
   @Deprecated(since = "0.24.0", forRemoval = true)
   private String logger;
+
+  @Deprecated(since = "0.24.0", forRemoval = true)
+  private String thread;
 
   StackdriverLogEntryBuilder() {
     this.service = new ServiceContext();
@@ -72,8 +74,7 @@ public final class StackdriverLogEntryBuilder {
   }
 
   public StackdriverLogEntryBuilder withTime(final Instant time) {
-    // returns a ISO-8061; RFC3339 is a variant of it, and thus compatible
-    this.time = DateTimeFormatter.ISO_INSTANT.format(time);
+    this.time = time;
     return this;
   }
 
@@ -116,10 +117,22 @@ public final class StackdriverLogEntryBuilder {
     return this;
   }
 
-  @Deprecated(since = "0.24.0", forRemoval = true)
   public StackdriverLogEntryBuilder withLogger(final String logger) {
     this.logger = logger;
-    return this;
+    return withContextEntry("loggerName", logger);
+  }
+
+  public StackdriverLogEntryBuilder withThreadName(final String threadName) {
+    this.thread = threadName;
+    return withContextEntry("threadName", threadName);
+  }
+
+  public StackdriverLogEntryBuilder withThreadId(final long threadId) {
+    return withContextEntry("threadId", threadId);
+  }
+
+  public StackdriverLogEntryBuilder withThreadPriority(final int threadPriority) {
+    return withContextEntry("threadPriority", threadPriority);
   }
 
   public StackdriverLogEntry build() {
@@ -137,15 +150,20 @@ public final class StackdriverLogEntryBuilder {
       type = StackdriverLogEntry.ERROR_REPORT_TYPE;
     }
 
+    if (time != null) {
+      stackdriverLogEntry.setTimestampSeconds(time.getEpochSecond());
+      stackdriverLogEntry.setTimestampNanos(time.getNanoOfSecond());
+    }
+
     stackdriverLogEntry.setSeverity(severity.name());
     stackdriverLogEntry.setSourceLocation(sourceLocation);
-    stackdriverLogEntry.setTime(time);
     stackdriverLogEntry.setMessage(Objects.requireNonNull(message));
     stackdriverLogEntry.setService(service);
     stackdriverLogEntry.setContext(context);
     stackdriverLogEntry.setType(type);
     stackdriverLogEntry.setException(exception);
     stackdriverLogEntry.setLogger(logger);
+    stackdriverLogEntry.setThread(thread);
 
     return stackdriverLogEntry;
   }

@@ -132,9 +132,9 @@ public final class StackdriverLayout extends AbstractLayout<byte[]> implements L
         StackdriverLogEntry.builder()
             .withLevel(event.getLevel())
             .withMessage(event.getMessage().getFormattedMessage())
-            .withTime(getInstant(event.getInstant()))
-            .withContextEntry("threadId", event.getThreadId())
-            .withContextEntry("threadPriority", event.getThreadPriority())
+            .withTime(event.getInstant())
+            .withThreadId(event.getThreadId())
+            .withThreadPriority(event.getThreadPriority())
             .withDiagnosticContext(event.getContextData())
             .withServiceName(serviceName)
             .withServiceVersion(serviceVersion);
@@ -151,19 +151,15 @@ public final class StackdriverLayout extends AbstractLayout<byte[]> implements L
 
     final var threadName = event.getThreadName();
     if (threadName != null) {
-      builder.withContextEntry("threadName", threadName);
+      builder.withThreadName(threadName);
     }
 
     final var loggerName = event.getLoggerName();
     if (loggerName != null) {
-      builder.withLogger(loggerName).withContextEntry("loggerName", loggerName);
+      builder.withLogger(loggerName);
     }
 
     return builder.build();
-  }
-
-  private Instant getInstant(final org.apache.logging.log4j.core.time.Instant instant) {
-    return Instant.ofEpochSecond(instant.getEpochSecond(), instant.getNanoOfSecond());
   }
 
   public static class Builder<B extends StackdriverLayout.Builder<B>>
