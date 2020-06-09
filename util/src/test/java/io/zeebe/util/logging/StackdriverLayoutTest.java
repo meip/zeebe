@@ -7,8 +7,6 @@
  */
 package io.zeebe.util.logging;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import io.zeebe.util.LogUtil;
@@ -29,9 +27,10 @@ import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.appender.OutputStreamAppender;
 import org.apache.logging.log4j.core.impl.ThrowableProxy;
 import org.assertj.core.api.InstanceOfAssertFactories;
-import org.assertj.core.api.SoftAssertions;
+import org.assertj.core.api.JUnitSoftAssertions;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +40,8 @@ public final class StackdriverLayoutTest {
   private static final ObjectReader OBJECT_READER = new ObjectMapper().reader();
   private static final String SERVICE = "test-service";
   private static final String VERSION = "test-version";
+
+  @Rule public JUnitSoftAssertions softly = new JUnitSoftAssertions();
 
   private Logger logger;
   private PipedInputStream source;
@@ -89,7 +90,7 @@ public final class StackdriverLayoutTest {
 
     // then
     final var jsonMap = readLoggedEvent();
-    assertThat(jsonMap).containsEntry("severity", Severity.DEBUG.name());
+    softly.assertThat(jsonMap).containsEntry("severity", Severity.DEBUG.name());
   }
 
   @Test
@@ -102,7 +103,7 @@ public final class StackdriverLayoutTest {
 
     // then
     final var jsonMap = readLoggedEvent();
-    assertThat(jsonMap).containsEntry("severity", Severity.DEBUG.name());
+    softly.assertThat(jsonMap).containsEntry("severity", Severity.DEBUG.name());
   }
 
   @Test
@@ -115,7 +116,7 @@ public final class StackdriverLayoutTest {
 
     // then
     final var jsonMap = readLoggedEvent();
-    assertThat(jsonMap).containsEntry("severity", Severity.INFO.name());
+    softly.assertThat(jsonMap).containsEntry("severity", Severity.INFO.name());
   }
 
   @Test
@@ -128,7 +129,7 @@ public final class StackdriverLayoutTest {
 
     // then
     final var jsonMap = readLoggedEvent();
-    assertThat(jsonMap).containsEntry("severity", Severity.WARNING.name());
+    softly.assertThat(jsonMap).containsEntry("severity", Severity.WARNING.name());
   }
 
   @Test
@@ -143,29 +144,27 @@ public final class StackdriverLayoutTest {
 
     // then
     final var jsonMap = readLoggedEvent();
-    SoftAssertions.assertSoftly(
-        softly ->
-            softly
-                .assertThat(jsonMap)
-                .containsEntry("severity", Severity.ERROR.name())
-                .containsEntry("message", "Error message 1")
-                .containsEntry("@type", StackdriverLogEntry.ERROR_REPORT_TYPE)
-                .hasEntrySatisfying(
-                    "context",
-                    context ->
-                        softly
-                            .assertThat(context)
-                            .asInstanceOf(InstanceOfAssertFactories.MAP)
-                            .hasEntrySatisfying(
-                                StackdriverLogEntryBuilder.ERROR_REPORT_LOCATION_CONTEXT_KEY,
-                                reportLocation ->
-                                    softly
-                                        .assertThat(reportLocation)
-                                        .asInstanceOf(InstanceOfAssertFactories.MAP)
-                                        .containsEntry("file", source.getFileName())
-                                        .containsEntry("function", source.getMethodName())
-                                        .containsEntry("line", source.getLineNumber() - 1)))
-                .doesNotContainKey("exception"));
+    softly
+        .assertThat(jsonMap)
+        .containsEntry("severity", Severity.ERROR.name())
+        .containsEntry("message", "Error message 1")
+        .containsEntry("@type", StackdriverLogEntry.ERROR_REPORT_TYPE)
+        .hasEntrySatisfying(
+            "context",
+            context ->
+                softly
+                    .assertThat(context)
+                    .asInstanceOf(InstanceOfAssertFactories.MAP)
+                    .hasEntrySatisfying(
+                        StackdriverLogEntryBuilder.ERROR_REPORT_LOCATION_CONTEXT_KEY,
+                        reportLocation ->
+                            softly
+                                .assertThat(reportLocation)
+                                .asInstanceOf(InstanceOfAssertFactories.MAP)
+                                .containsEntry("file", source.getFileName())
+                                .containsEntry("function", source.getMethodName())
+                                .containsEntry("line", source.getLineNumber() - 1)))
+        .doesNotContainKey("exception");
   }
 
   @Test
@@ -179,22 +178,20 @@ public final class StackdriverLayoutTest {
 
     // then
     final var jsonMap = readLoggedEvent();
-    SoftAssertions.assertSoftly(
-        softly ->
-            softly
-                .assertThat(jsonMap)
-                .containsEntry("severity", Severity.ERROR.name())
-                .containsEntry("message", "Error message")
-                .containsEntry("@type", StackdriverLogEntry.ERROR_REPORT_TYPE)
-                .containsEntry("exception", exception.getExtendedStackTraceAsString())
-                .hasEntrySatisfying(
-                    "context",
-                    context ->
-                        softly
-                            .assertThat(context)
-                            .asInstanceOf(InstanceOfAssertFactories.MAP)
-                            .doesNotContainKey(
-                                StackdriverLogEntryBuilder.ERROR_REPORT_LOCATION_CONTEXT_KEY)));
+    softly
+        .assertThat(jsonMap)
+        .containsEntry("severity", Severity.ERROR.name())
+        .containsEntry("message", "Error message")
+        .containsEntry("@type", StackdriverLogEntry.ERROR_REPORT_TYPE)
+        .containsEntry("exception", exception.getExtendedStackTraceAsString())
+        .hasEntrySatisfying(
+            "context",
+            context ->
+                softly
+                    .assertThat(context)
+                    .asInstanceOf(InstanceOfAssertFactories.MAP)
+                    .doesNotContainKey(
+                        StackdriverLogEntryBuilder.ERROR_REPORT_LOCATION_CONTEXT_KEY));
   }
 
   @Test
@@ -207,7 +204,7 @@ public final class StackdriverLayoutTest {
 
     // then
     final var jsonMap = readLoggedEvent();
-    assertThat(jsonMap).containsEntry("message", expectedMessage);
+    softly.assertThat(jsonMap).containsEntry("message", expectedMessage);
   }
 
   @Test
@@ -224,9 +221,12 @@ public final class StackdriverLayoutTest {
     final var timestampSeconds = ((Number) jsonMap.get("timestampSeconds")).longValue();
     final var timestampNanos = ((Number) jsonMap.get("timestampNanos")).longValue();
 
-    assertThat(timestampSeconds)
+    softly
+        .assertThat(timestampSeconds)
         .isBetween(lowerBound.getEpochSecond(), upperBound.getEpochSecond());
-    assertThat(timestampNanos).isBetween((long) lowerBound.getNano(), (long) upperBound.getNano());
+    softly
+        .assertThat(timestampNanos)
+        .isBetween((long) lowerBound.getNano(), (long) upperBound.getNano());
   }
 
   @Test
@@ -239,7 +239,7 @@ public final class StackdriverLayoutTest {
 
     // then
     final var rawOutput = source.readNBytes(source.available());
-    assertThat(new String(rawOutput)).endsWith(lineSeparator);
+    softly.assertThat(new String(rawOutput)).endsWith(lineSeparator);
   }
 
   @Test
@@ -251,19 +251,17 @@ public final class StackdriverLayoutTest {
 
     // then
     final var jsonMap = readLoggedEvent();
-    SoftAssertions.assertSoftly(
-        softly ->
-            softly
-                .assertThat(jsonMap)
-                .hasEntrySatisfying(
-                    "logging.googleapis.com/sourceLocation",
-                    sourceLocation ->
-                        softly
-                            .assertThat(sourceLocation)
-                            .asInstanceOf(InstanceOfAssertFactories.MAP)
-                            .containsEntry("file", source.getFileName())
-                            .containsEntry("function", source.getMethodName())
-                            .containsEntry("line", source.getLineNumber() - 1)));
+    softly
+        .assertThat(jsonMap)
+        .hasEntrySatisfying(
+            "logging.googleapis.com/sourceLocation",
+            sourceLocation ->
+                softly
+                    .assertThat(sourceLocation)
+                    .asInstanceOf(InstanceOfAssertFactories.MAP)
+                    .containsEntry("file", source.getFileName())
+                    .containsEntry("function", source.getMethodName())
+                    .containsEntry("line", source.getLineNumber() - 1));
   }
 
   @Test
@@ -273,18 +271,16 @@ public final class StackdriverLayoutTest {
 
     // then
     final var jsonMap = readLoggedEvent();
-    SoftAssertions.assertSoftly(
-        softly ->
-            softly
-                .assertThat(jsonMap)
-                .hasEntrySatisfying(
-                    "serviceContext",
-                    serviceContext ->
-                        softly
-                            .assertThat(serviceContext)
-                            .asInstanceOf(InstanceOfAssertFactories.MAP)
-                            .containsEntry("service", SERVICE)
-                            .containsEntry("version", VERSION)));
+    softly
+        .assertThat(jsonMap)
+        .hasEntrySatisfying(
+            "serviceContext",
+            serviceContext ->
+                softly
+                    .assertThat(serviceContext)
+                    .asInstanceOf(InstanceOfAssertFactories.MAP)
+                    .containsEntry("service", SERVICE)
+                    .containsEntry("version", VERSION));
   }
 
   @Test
@@ -297,17 +293,64 @@ public final class StackdriverLayoutTest {
 
     // then
     final var jsonMap = readLoggedEvent();
-    SoftAssertions.assertSoftly(
-        softly ->
-            softly
-                .assertThat(jsonMap)
-                .hasEntrySatisfying(
-                    "context",
-                    context ->
-                        softly
-                            .assertThat(context)
-                            .asInstanceOf(InstanceOfAssertFactories.MAP)
-                            .containsAllEntriesOf(expectedContext)));
+    softly
+        .assertThat(jsonMap)
+        .hasEntrySatisfying(
+            "context",
+            context ->
+                softly
+                    .assertThat(context)
+                    .asInstanceOf(InstanceOfAssertFactories.MAP)
+                    .containsAllEntriesOf(expectedContext));
+  }
+
+  @Test
+  public void shouldContainThreadInfo() throws IOException {
+    // given
+    final var currentThread = Thread.currentThread();
+    logger.setLevel(Level.INFO);
+
+    // when
+    logger.info("Message");
+
+    // then
+    final var jsonMap = readLoggedEvent();
+    softly
+        .assertThat(jsonMap)
+        .containsEntry("thread", currentThread.getName())
+        .hasEntrySatisfying(
+            "context",
+            context ->
+                softly
+                    .assertThat(context)
+                    .asInstanceOf(InstanceOfAssertFactories.MAP)
+                    .containsEntry("threadName", currentThread.getName())
+                    .containsEntry(
+                        "threadId",
+                        (int) currentThread.getId()) // Jackson will parse small numbers as integers
+                    .containsEntry("threadPriority", currentThread.getPriority()));
+  }
+
+  @Test
+  public void shouldContainLogger() throws IOException {
+    // given
+    logger.setLevel(Level.INFO);
+
+    // when
+    logger.info("Message");
+
+    // then
+    final var jsonMap = readLoggedEvent();
+    softly
+        .assertThat(jsonMap)
+        .containsEntry("logger", logger.getName())
+        .hasEntrySatisfying(
+            "context",
+            context ->
+                softly
+                    .assertThat(context)
+                    .asInstanceOf(InstanceOfAssertFactories.MAP)
+                    .containsEntry("loggerName", logger.getName()));
   }
 
   @Deprecated(since = "0.24.0", forRemoval = true)
@@ -317,17 +360,14 @@ public final class StackdriverLayoutTest {
     logger.error("Should appear as JSON formatted output");
 
     // then
-    final Map<String, Object> jsonMap = readLoggedEvent();
-
-    SoftAssertions.assertSoftly(
-        softly ->
-            softly
-                .assertThat(jsonMap)
-                .containsKeys(
-                    "logger", "message", "severity", "thread", "timestampNanos", "timestampSeconds")
-                .containsEntry("message", "Should appear as JSON formatted output")
-                .containsEntry("severity", Severity.ERROR.name())
-                .containsEntry("logger", logger.getName()));
+    final var jsonMap = readLoggedEvent();
+    softly
+        .assertThat(jsonMap)
+        .containsKeys(
+            "logger", "message", "severity", "thread", "timestampNanos", "timestampSeconds")
+        .containsEntry("message", "Should appear as JSON formatted output")
+        .containsEntry("severity", Severity.ERROR.name())
+        .containsEntry("logger", logger.getName());
   }
 
   private Map<String, Object> readLoggedEvent() throws IOException {

@@ -132,9 +132,9 @@ public final class StackdriverLayout extends AbstractLayout<byte[]> implements L
             .withLevel(event.getLevel())
             .withMessage(event.getMessage().getFormattedMessage())
             .withTime(event.getInstant())
+            .withDiagnosticContext(event.getContextData())
             .withThreadId(event.getThreadId())
             .withThreadPriority(event.getThreadPriority())
-            .withDiagnosticContext(event.getContextData())
             .withServiceName(serviceName)
             .withServiceVersion(serviceVersion);
 
